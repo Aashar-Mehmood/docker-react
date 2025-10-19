@@ -5,8 +5,10 @@ pipeline{
         stage('Test') {
             steps {
                 echo 'Testing...'
-                docker build -t docker-react-test -f Dockerfile.dev . 
-                docker run docker-react-test npm run test -- --coverage
+                sh '''
+                    docker build -t docker-react-test -f Dockerfile.dev . 
+                    docker run docker-react-test npm run test -- --coverage
+                '''
             }
         }
          stage('Build') {
