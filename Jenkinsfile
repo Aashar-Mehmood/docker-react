@@ -1,6 +1,6 @@
 pipeline{
     agent any
-    
+
     stages {
         stage('Test') {
             steps {
@@ -24,9 +24,13 @@ pipeline{
         stage('Deploy') {
             steps {
                 echo 'Deploying...'
-                sh '''
-                    aws --version
-                '''
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aashar-aws-creds', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                     sh '''
+                        aws --version
+                        aws ec2 describe-instances --region eu-north-1
+                    '''
+                }
+               
             }
         }
         // stage('Run Locally') {
