@@ -1,6 +1,6 @@
 pipeline{
     agent any
-
+    
     stages {
         stage('Test') {
             steps {
@@ -24,6 +24,9 @@ pipeline{
         stage('Deploy') {
             steps {
                 echo 'Deploying...'
+                sh '''
+                    aws --version
+                '''
             }
         }
         // stage('Run Locally') {
