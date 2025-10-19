@@ -13,11 +13,11 @@ pipeline{
                 '''
             }
         }
-         stage('Build') {
+        stage('Build') {
             steps {
                 echo 'Building...'
                 sh '''
-                    docker compose up
+                    docker compose build
                 '''
             }
         }
@@ -26,5 +26,13 @@ pipeline{
                 echo 'Deploying...'
             }
         }
+        // stage('Run Locally') {
+        //     steps {
+        //         echo 'Starting Container Locally ...'
+        //         sh '''
+        //             docker compose up -d
+        //         '''
+        //     }
+        // }
     }
 }
