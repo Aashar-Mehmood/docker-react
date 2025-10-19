@@ -6,7 +6,7 @@ pipeline{
             steps {
                 echo 'Testing...'
                 docker build -t docker-react-test -f Dockerfile.dev . 
-                docker run -e CI=true docker-react-test npm run test -- --coverage
+                docker run docker-react-test npm run test -- --coverage
             }
         }
          stage('Build') {
