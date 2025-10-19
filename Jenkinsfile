@@ -2,14 +2,15 @@ pipeline{
     agent any
 
     stages {
-        stage('Build') {
-            steps {
-                echo 'Building...'
-            }
-        }
         stage('Test') {
             steps {
                 echo 'Testing...'
+                docker build -t docker-react-test -f Dockerfile.dev . npm run test -- --coverage
+            }
+        }
+         stage('Build') {
+            steps {
+                echo 'Building...'
             }
         }
         stage('Deploy') {
