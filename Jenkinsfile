@@ -28,9 +28,8 @@ pipeline{
         }
         stage('Prepare Artifact') {
             steps {
-                sh '''
-                    zip -r deploy.zip build/
-                '''
+                echo 'Zipping build folder...'
+                bat 'powershell Compress-Archive -Path build\\* -DestinationPath deploy.zip -Force'
             }
         }
         
