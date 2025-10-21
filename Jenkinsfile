@@ -1,66 +1,57 @@
-pipeline{
+pipeline {
     agent any
 
     environment {
+        AWS_REGION = 'eu-north-1'
+        ECR_REPO = 'docker-react-frontend'
         EB_APP_NAME = 'docker-react-frontend'
         EB_ENV_NAME = 'docker-react-frontend-env'
-        AWS_REGION = 'eu-north-1'
     }
 
     stages {
-        // stage('Test') {
-        //     steps {
-        //         echo 'Testing...'
-        //         sh '''
-        //             docker build -t docker-react-test-image -f Dockerfile.dev . 
-        //             docker run --name docker-react-test-container docker-react-test-image npm run test -- --coverage
-        //             docker stop docker-react-test-container || true
-        //             docker rm docker-react-test-container || true
-        //         '''
-        //     }
-        // }
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Building...'
-                bat 'npm install'
-                bat 'npm run build'
+                bat '''
+                    docker build -t %ECR_REPO%:latest .
+                '''
             }
         }
-        stage('Prepare Artifact') {
+
+        stage('Push to ECR') {
             steps {
-                echo 'Zipping build folder...'
-                bat 'powershell Compress-Archive -Path build\\* -DestinationPath deploy.zip -Force'
+                bat '''
+                    for /f "delims=" %%i in ('aws sts get-caller-identity --query Account --output text') do set AWS_ACCOUNT_ID=%%i
+                    set ECR_URL=%AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%ECR_REPO%
+                    
+                    aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com
+                    docker tag %ECR_REPO%:latest %ECR_URL%:latest
+                    docker push %ECR_URL%:latest
+                '''
             }
         }
-        
-        stage('Deploy') {
+
+        stage('Deploy to Elastic Beanstalk') {
             steps {
-                echo 'Deploying...'
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
-                                    credentialsId: 'aashar-aws-creds', 
-                                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-                        S3_BUCKET="elasticbeanstalk-$AWS_REGION-$ACCOUNT_ID"
-                        VERSION_LABEL="v${BUILD_NUMBER}"
+                bat '''
+                    echo Creating Dockerrun.aws.json...
 
-                        # Upload ZIP to S3
-                        aws s3 cp deploy.zip s3://$S3_BUCKET/$EB_APP_NAME-$VERSION_LABEL.zip
+                    echo { > Dockerrun.aws.json
+                    echo   "AWSEBDockerrunVersion": 2, >> Dockerrun.aws.json
+                    echo   "containerDefinitions": [ >> Dockerrun.aws.json
+                    echo     { >> Dockerrun.aws.json
+                    echo       "name": "reactapp", >> Dockerrun.aws.json
+                    echo       "image": "%AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%ECR_REPO%:latest", >> Dockerrun.aws.json
+                    echo       "essential": true, >> Dockerrun.aws.json
+                    echo       "memory": 256, >> Dockerrun.aws.json
+                    echo       "portMappings": [ { "containerPort": 80 } ] >> Dockerrun.aws.json
+                    echo     } >> Dockerrun.aws.json
+                    echo   ] >> Dockerrun.aws.json
+                    echo } >> Dockerrun.aws.json
 
-                        # Create new application version
-                        aws elasticbeanstalk create-application-version \
-                        --application-name $EB_APP_NAME \
-                        --version-label $VERSION_LABEL \
-                        --source-bundle S3Bucket=$S3_BUCKET,S3Key=$EB_APP_NAME-$VERSION_LABEL.zip
-
-                        # Update environment
-                        aws elasticbeanstalk update-environment \
-                        --environment-name $EB_ENV_NAME \
-                        --version-label $VERSION_LABEL
-                    '''
-                }
+                    eb use %EB_ENV_NAME%
+                    eb deploy
+                '''
             }
         }
-        
     }
 }
