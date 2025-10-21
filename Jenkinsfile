@@ -22,9 +22,7 @@ pipeline{
         stage('Build') {
             steps {
                 echo 'Building...'
-                sh '''
-                    npm run build
-                '''
+                bat 'npm run build'
             }
         }
         stage('Prepare Artifact') {
