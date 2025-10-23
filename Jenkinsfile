@@ -32,26 +32,35 @@ pipeline {
 
         stage('Deploy to Elastic Beanstalk') {
             steps {
-                bat '''
-                    echo Creating Dockerrun.aws.json...
+                powershell '''
+                    Write-Host "Creating Dockerrun.aws.json..."
 
-                    echo { > Dockerrun.aws.json
-                    echo   "AWSEBDockerrunVersion": 2, >> Dockerrun.aws.json
-                    echo   "containerDefinitions": [ >> Dockerrun.aws.json
-                    echo     { >> Dockerrun.aws.json
-                    echo       "name": "reactapp", >> Dockerrun.aws.json
-                    echo       "image": "%AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%ECR_REPO%:latest", >> Dockerrun.aws.json
-                    echo       "essential": true, >> Dockerrun.aws.json
-                    echo       "memory": 256, >> Dockerrun.aws.json
-                    echo       "portMappings": [ { "containerPort": 80 } ] >> Dockerrun.aws.json
-                    echo     } >> Dockerrun.aws.json
-                    echo   ] >> Dockerrun.aws.json
-                    echo } >> Dockerrun.aws.json
+                    $json = @{
+                        AWSEBDockerrunVersion = 2
+                        containerDefinitions = @(
+                            @{
+                                name = "reactapp"
+                                image = "$env:AWS_ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO:latest"
+                                essential = $true
+                                memory = 256
+                                portMappings = @(@{ containerPort = 80 })
+                            }
+                        )
+                    } | ConvertTo-Json -Depth 5
 
-                    eb use %EB_ENV_NAME%
+                    $json | Out-File -FilePath Dockerrun.aws.json -Encoding utf8
+
+                    Write-Host "Packaging Dockerrun.aws.json for deployment..."
+                    Compress-Archive -Path Dockerrun.aws.json -DestinationPath deploy.zip -Force
+
+                    Write-Host "Using EB environment..."
+                    eb use $env:EB_ENV_NAME
+
+                    Write-Host "Deploying to Elastic Beanstalk..."
                     eb deploy
                 '''
             }
         }
+
     }
 }
