@@ -35,30 +35,37 @@ pipeline {
                 bat '''
                     echo Creating Dockerrun.aws.json...
 
-                    echo { > Dockerrun.aws.json
-                    echo   "AWSEBDockerrunVersion": 2, >> Dockerrun.aws.json
-                    echo   "containerDefinitions": [ >> Dockerrun.aws.json
-                    echo     { >> Dockerrun.aws.json
-                    echo       "name": "reactapp", >> Dockerrun.aws.json
-                    echo       "image": "%AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%ECR_REPO%:latest", >> Dockerrun.aws.json
-                    echo       "essential": true, >> Dockerrun.aws.json
-                    echo       "memory": 256, >> Dockerrun.aws.json
-                    echo       "portMappings": [ { "containerPort": 80 } ] >> Dockerrun.aws.json
-                    echo     } >> Dockerrun.aws.json
-                    echo   ] >> Dockerrun.aws.json
-                    echo } >> Dockerrun.aws.json
+                    rem === Create Dockerrun.aws.json using forward slashes only ===
+                    (
+                        echo {
+                        echo   "AWSEBDockerrunVersion": 2,
+                        echo   "containerDefinitions": [
+                        echo     {
+                        echo       "name": "reactapp",
+                        echo       "image": "%AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%ECR_REPO%:latest",
+                        echo       "essential": true,
+                        echo       "memory": 256,
+                        echo       "portMappings": [ { "containerPort": 80 } ]
+                        echo     }
+                        echo   ]
+                        echo }
+                    ) > Dockerrun.aws.json
 
-                    echo Initializing Elastic Beanstalk CLI...
-                    eb init %EB_APP_NAME% --region %AWS_REGION% --platform "Docker"
+                    rem === Ensure Unix-style slashes for EB CLI ===
+                    powershell -Command "(Get-Content Dockerrun.aws.json) | ForEach-Object {$_ -replace '\\\\','/'} | Set-Content -Encoding UTF8 Dockerrun.aws.json"
 
-                    echo Using environment...
+                    rem === Initialize Elastic Beanstalk if not already done ===
+                    if not exist ".elasticbeanstalk" (
+                        eb init %EB_APP_NAME% --region %AWS_REGION% --platform "Docker"
+                    )
+
+                    rem === Set environment ===
                     eb use %EB_ENV_NAME%
 
-                    echo Deploying to Elastic Beanstalk...
-                    eb deploy
+                    rem === Deploy to Elastic Beanstalk ===
+                    eb deploy --staged
                 '''
             }
         }
-
     }
 }
